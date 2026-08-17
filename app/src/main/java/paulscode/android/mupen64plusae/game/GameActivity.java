@@ -189,6 +189,7 @@ public class GameActivity extends AppCompatActivity implements PromptConfirmList
     private DrawerLayout mDrawerLayout;
     private GameSidebar mGameSidebar;
     private GameSurface mGameSurface;
+    // External TV display support
     private DisplayManager mDisplayManager;
     private Presentation mExternalPresentation;    
 
