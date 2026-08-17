@@ -21,6 +21,9 @@
 package paulscode.android.mupen64plusae.game;
 
 import android.annotation.SuppressLint;
+import android.app.Presentation;
+import android.hardware.display.DisplayManager;
+import android.view.Display;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -186,6 +189,8 @@ public class GameActivity extends AppCompatActivity implements PromptConfirmList
     private DrawerLayout mDrawerLayout;
     private GameSidebar mGameSidebar;
     private GameSurface mGameSurface;
+    private DisplayManager mDisplayManager;
+    private Presentation mExternalPresentation;    
 
     // Input resources
     private VisibleTouchMap mTouchscreenMap;
@@ -607,6 +612,7 @@ public class GameActivity extends AppCompatActivity implements PromptConfirmList
                 onKey(mOverlay, KeyEvent.KEYCODE_BACK, event);
             }
         });
+        showGameOnExternalDisplay();      
     }
 
     @Override
@@ -629,7 +635,68 @@ public class GameActivity extends AppCompatActivity implements PromptConfirmList
             }
         }
     }
+private void showGameOnExternalDisplay()
+{
+    mDisplayManager =
+            (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
 
+    Display[] displays = mDisplayManager.getDisplays(
+            DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
+
+    if (displays.length == 0)
+    {
+        Log.i(TAG, "No external presentation display found");
+        return;
+    }
+
+    Display externalDisplay = displays[0];
+
+    mExternalPresentation =
+            new Presentation(this, externalDisplay);
+
+    FrameLayout externalRoot =
+            new FrameLayout(mExternalPresentation.getContext());
+
+    externalRoot.setBackgroundColor(Color.BLACK);
+
+    android.view.ViewParent parent = mGameSurface.getParent();
+
+    if (parent instanceof android.view.ViewGroup)
+    {
+        ((android.view.ViewGroup) parent).removeView(mGameSurface);
+    }
+
+    int screenWidth =
+            externalDisplay.getMode().getPhysicalWidth();
+
+    int screenHeight =
+            externalDisplay.getMode().getPhysicalHeight();
+
+    // Keep normal N64 4:3 aspect ratio
+    int gameWidth = screenWidth;
+    int gameHeight = Math.round(gameWidth * 3f / 4f);
+
+    if (gameHeight > screenHeight)
+    {
+        gameHeight = screenHeight;
+        gameWidth = Math.round(gameHeight * 4f / 3f);
+    }
+
+    FrameLayout.LayoutParams tvParams =
+            new FrameLayout.LayoutParams(
+                    gameWidth,
+                    gameHeight,
+                    Gravity.CENTER);
+
+    externalRoot.addView(mGameSurface, tvParams);
+
+    mExternalPresentation.setContentView(externalRoot);
+    mExternalPresentation.show();
+
+    Log.i(TAG,
+            "N64 video moved to external display: "
+                    + externalDisplay.getName());
+}
     @Override
     public void onStart()
     {
@@ -753,7 +820,15 @@ public class GameActivity extends AppCompatActivity implements PromptConfirmList
     public void onDestroy()
     {
         Log.i( TAG, "onDestroy" );
-
+            
+if (mExternalPresentation != null)
+{
+    if (mExternalPresentation.isShowing())
+    {
+        mExternalPresentation.dismiss();
+    }
+    mExternalPresentation = null;
+}
         super.onDestroy();
 
         // This apparently can happen on rare occasion, not sure how, so protect against it
